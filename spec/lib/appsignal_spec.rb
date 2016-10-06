@@ -321,92 +321,105 @@ describe Appsignal do
     end
 
     describe ".monitor_transaction" do
-      context "with a successful call" do
-        it "should instrument and complete for a background job" do
-          Appsignal.should_receive(:instrument).with(
-            'perform_job.something'
-          ).and_yield
-          Appsignal::Transaction.should_receive(:complete_current!)
-          object = double
-          object.should_receive(:some_method).and_return(1)
+      it "returns the block's return value" do
+        return_value = \
+          Appsignal.monitor_transaction('process_action.something', http_request_env_with_data) do
+            :return_value
+          end
+        expect(return_value).to eq(:return_value)
+      end
 
-          Appsignal.monitor_transaction(
-            'perform_job.something',
-            background_env_with_data
-          ) do
-            current = Appsignal::Transaction.current
-            current.namespace.should eq Appsignal::Transaction::BACKGROUND_JOB
-            current.request.should be_a(Appsignal::Transaction::GenericRequest)
-            object.some_method
-          end.should eq 1
-        end
+      context "with a background job" do
+        it "instruments the block and complete the transaction" do
+          expect(Appsignal).to receive(:instrument).with('perform_job.something').and_yield
+          expect(Appsignal::Transaction).to receive(:complete_current!)
 
-        it "should instrument and complete for a http request" do
-          Appsignal.should_receive(:instrument).with(
-            'process_action.something'
-          ).and_yield
-          Appsignal::Transaction.should_receive(:complete_current!)
-          object = double
-          object.should_receive(:some_method)
-
-          Appsignal.monitor_transaction(
-            'process_action.something',
-            http_request_env_with_data
-          ) do
-            current = Appsignal::Transaction.current
-            current.namespace.should eq Appsignal::Transaction::HTTP_REQUEST
-            current.request.should be_a(::Rack::Request)
-            object.some_method
+          Appsignal.monitor_transaction('perform_job.something', background_env_with_data) do
+            transaction = Appsignal::Transaction.current
+            expect(transaction.namespace).to eq(Appsignal::Transaction::BACKGROUND_JOB)
+            expect(transaction.request).to be_a(Appsignal::Transaction::GenericRequest)
           end
         end
       end
 
-      context "with an erroring call" do
-        let(:error) { VerySpecificError.new }
+      context "with a HTTP request" do
+        it "instruments the block and complete the transaction" do
+          expect(Appsignal).to receive(:instrument).with('process_action.something').and_yield
+          expect(Appsignal::Transaction).to receive(:complete_current!)
 
-        it "should add the error to the current transaction and complete" do
-          Appsignal::Transaction.any_instance.should_receive(:set_error).with(error)
-          Appsignal::Transaction.should_receive(:complete_current!)
+          Appsignal.monitor_transaction('process_action.something', http_request_env_with_data) do
+            transaction = Appsignal::Transaction.current
+            expect(transaction.namespace).to eq(Appsignal::Transaction::HTTP_REQUEST)
+            expect(transaction.request).to be_a(::Rack::Request)
+          end
+        end
+      end
 
-          lambda {
-            Appsignal.monitor_transaction('perform_job.something') do
-              raise error
-            end
-          }.should raise_error(error)
+      context "with a block that raises an error" do
+        context "with StandardError" do
+          let(:error) { StandardError.new }
+
+          it "adds error to transaction, completes transaction, and raises error again" do
+            expect(Appsignal::Transaction).to receive(:complete_current!)
+
+            expect do
+              Appsignal.monitor_transaction('perform_job.something') do
+                expect(Appsignal::Transaction.current).to receive(:set_error).with(error)
+                raise error
+              end
+            end.to raise_error(error)
+          end
+        end
+
+        context "with ScriptError" do
+          let(:error) { ScriptError.new }
+
+          it "adds error to transaction, completes transaction, and raises error again" do
+            expect(Appsignal::Transaction).to receive(:complete_current!)
+
+            expect do
+              Appsignal.monitor_transaction('perform_job.something') do
+                expect(Appsignal::Transaction.current).to receive(:set_error).with(error)
+                raise error
+              end
+            end.to raise_error(error)
+          end
         end
       end
     end
 
     describe ".monitor_single_transaction" do
-      context "with a successful call" do
-        it "should call monitor_transaction and stop" do
-          Appsignal.should_receive(:monitor_transaction).with(
-            'perform_job.something',
-            :key => :value
-          ).and_yield
-          Appsignal.should_receive(:stop)
+      it "monitor the transaction and stop" do
+        expect(Appsignal).to receive(:monitor_transaction).with(
+          'perform_job.something',
+          :key => :value
+        ).and_call_original
+        expect(Appsignal).to receive(:stop).with('monitor_single_transaction')
 
+        return_value = \
           Appsignal.monitor_single_transaction('perform_job.something', :key => :value) do
-            # nothing
+            # noop
+            :return_value
           end
-        end
+        expect(return_value).to eq(:return_value)
       end
 
-      context "with an erroring call" do
-        let(:error) { VerySpecificError.new }
+      context "with a block that raises an error" do
+        let(:error) { StandardError.new }
 
-        it "should call monitor_transaction and stop and then raise the error" do
-          Appsignal.should_receive(:monitor_transaction).with(
+        it "monitors the transaction, stops the transaction, and raises error again" do
+          expect(Appsignal).to receive(:monitor_transaction).with(
             'perform_job.something',
             :key => :value
-          ).and_yield
-          Appsignal.should_receive(:stop)
+          ).and_call_original
+          expect(Appsignal).to receive(:stop).with('monitor_single_transaction')
 
-          lambda {
+          expect do
             Appsignal.monitor_single_transaction('perform_job.something', :key => :value) do
+              expect(Appsignal::Transaction.current).to receive(:set_error).with(error)
               raise error
             end
-          }.should raise_error(error)
+          end.to raise_error(error)
         end
       end
     end

@@ -3,6 +3,8 @@ require 'logger'
 require 'securerandom'
 
 module Appsignal
+  CAPTURED_ERRORS = [StandardError, ScriptError].freeze
+
   class << self
     attr_accessor :config, :agent, :extension_loaded
     attr_writer :logger, :in_memory_log
@@ -96,9 +98,7 @@ module Appsignal
 
     # Wrap a transaction with appsignal monitoring.
     def monitor_transaction(name, env={})
-      unless active?
-        return yield
-      end
+      return yield unless active?
 
       if name.start_with?('perform_job'.freeze)
         namespace = Appsignal::Transaction::BACKGROUND_JOB
@@ -107,7 +107,8 @@ module Appsignal
         namespace = Appsignal::Transaction::HTTP_REQUEST
         request   = ::Rack::Request.new(env)
       else
-        logger.error("Unrecognized name '#{name}'") and return
+        logger.error("Unrecognized name '#{name}'")
+        return
       end
       transaction = Appsignal::Transaction.create(
         SecureRandom.uuid,
@@ -118,7 +119,7 @@ module Appsignal
         Appsignal.instrument(name) do
           yield
         end
-      rescue => error
+      rescue *Appsignal::CAPTURED_ERRORS => error
         transaction.set_error(error)
         raise error
       ensure

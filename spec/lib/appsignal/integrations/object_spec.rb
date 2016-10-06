@@ -18,12 +18,12 @@ describe Object do
         before do
           expect(Appsignal::Transaction).to receive(:current).at_least(:once).and_return(transaction)
           Appsignal.config = project_fixture_config
+          expect(Appsignal.active?).to be_true
         end
         after { Appsignal.config = nil }
 
         context "with anonymous class" do
           it "instruments the method and calls it" do
-            expect(Appsignal.active?).to be_true
             expect(transaction).to receive(:start_event)
             expect(transaction).to receive(:finish_event).with \
               "foo.AnonymousClass.other", nil, nil, Appsignal::EventFormatter::DEFAULT
@@ -44,7 +44,6 @@ describe Object do
           let(:klass) { NamedClass }
 
           it "instruments the method and calls it" do
-            expect(Appsignal.active?).to be_true
             expect(transaction).to receive(:start_event)
             expect(transaction).to receive(:finish_event).with \
               "foo.NamedClass.other", nil, nil, Appsignal::EventFormatter::DEFAULT
@@ -69,7 +68,6 @@ describe Object do
           let(:klass) { MyModule::NestedModule::NamedClass }
 
           it "instruments the method and calls it" do
-            expect(Appsignal.active?).to be_true
             expect(transaction).to receive(:start_event)
             expect(transaction).to receive(:finish_event).with \
               "bar.NamedClass.NestedModule.MyModule.other", nil, nil,
@@ -89,7 +87,6 @@ describe Object do
           end
 
           it "instruments with custom name" do
-            expect(Appsignal.active?).to be_true
             expect(transaction).to receive(:start_event)
             expect(transaction).to receive(:finish_event).with \
               "my_method.group", nil, nil, Appsignal::EventFormatter::DEFAULT
@@ -140,12 +137,12 @@ describe Object do
           expect(Appsignal::Transaction).to receive(:current).at_least(:once)
             .and_return(transaction)
           Appsignal.config = project_fixture_config
+          expect(Appsignal.active?).to be_true
         end
         after { Appsignal.config = nil }
 
         context "with anonymous class" do
           it "instruments the method and calls it" do
-            expect(Appsignal.active?).to be_true
             expect(transaction).to receive(:start_event)
             expect(transaction).to receive(:finish_event).with \
               "bar.class_method.AnonymousClass.other", nil, nil, Appsignal::EventFormatter::DEFAULT
@@ -166,7 +163,6 @@ describe Object do
           let(:klass) { NamedClass }
 
           it "instruments the method and calls it" do
-            expect(Appsignal.active?).to be_true
             expect(transaction).to receive(:start_event)
             expect(transaction).to receive(:finish_event).with \
               "bar.class_method.NamedClass.other", nil, nil, Appsignal::EventFormatter::DEFAULT
@@ -190,7 +186,6 @@ describe Object do
             let(:klass) { MyModule::NestedModule::NamedClass }
 
             it "instruments the method and calls it" do
-              expect(Appsignal.active?).to be_true
               expect(transaction).to receive(:start_event)
               expect(transaction).to receive(:finish_event).with \
                 "bar.class_method.NamedClass.NestedModule.MyModule.other", nil, nil,
@@ -211,7 +206,6 @@ describe Object do
           end
 
           it "instruments with custom name" do
-            expect(Appsignal.active?).to be_true
             expect(transaction).to receive(:start_event)
             expect(transaction).to receive(:finish_event).with \
               "my_method.group", nil, nil, Appsignal::EventFormatter::DEFAULT

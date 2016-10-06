@@ -13,7 +13,7 @@ module Appsignal
 
           def execute(*args)
             execute_without_appsignal(*args)
-          rescue => error
+          rescue *Appsignal::CAPTURED_ERRORS => error
             transaction = Appsignal::Transaction.create(
               SecureRandom.uuid,
               Appsignal::Transaction::BACKGROUND_JOB,

@@ -55,7 +55,7 @@ module Appsignal
           Appsignal.instrument('process_action.sinatra') do
             @app.call(env)
           end
-        rescue => error
+        rescue *Appsignal::CAPTURED_ERRORS => error
           transaction.set_error(error)
           raise error
         ensure

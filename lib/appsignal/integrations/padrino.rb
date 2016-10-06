@@ -36,7 +36,7 @@ module Padrino::Routing::InstanceMethods
       Appsignal.instrument('process_action.padrino') do
         route_without_appsignal(base, pass_block)
       end
-    rescue => error
+    rescue *Appsignal::CAPTURED_ERRORS => error
       transaction.set_error(error)
       raise error
     ensure
