@@ -9,7 +9,17 @@ require File.expand_path("../../lib/appsignal/version.rb", __FILE__)
 
 EXT_PATH     = File.expand_path("..", __FILE__).freeze
 AGENT_CONFIG = YAML.load(File.read(File.join(EXT_PATH, "agent.yml"))).freeze
-ARCH         = "#{Gem::Platform.local.cpu}-#{Gem::Platform.local.os}".freeze
+OS           =
+  if Gem::Platform.local.os =~ /linux/
+    if `ldd --version 2>&1` =~ /musl/
+      "linux-musl"
+    else
+      "linux"
+    end
+  else
+    Gem::Platform.local.os
+  end.freeze
+ARCH         = "#{Gem::Platform.local.cpu}-#{OS}".freeze
 CA_CERT_PATH = File.join(EXT_PATH, "../resources/cacert.pem").freeze
 
 def ext_path(path)
